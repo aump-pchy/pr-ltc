@@ -285,11 +285,12 @@ function syncMeta(from){
 
 /* ---------- photos ---------- */
 function addFiles(files){
-  [...files].filter(f=>f.type.startsWith("image/")).forEach(f=>{
-    const url = URL.createObjectURL(f); const img = new Image();
-    img.onload = ()=>{ S.photos.push({id:++uid,url,w:img.naturalWidth,h:img.naturalHeight,fx:50,fy:50}); renderThumbs(); if(isProof()) renderPage(); };
-    img.src = url;
-  });
+  const list=[...files].filter(f=>f.type.startsWith("image/"));
+  const slots=list.map(f=>{ const o={id:++uid,url:URL.createObjectURL(f),el:null,fx:50,fy:50,ready:false}; S.photos.push(o); return o; });
+  renderThumbs();
+  slots.forEach(o=>{ const img=new Image();
+    img.onload=()=>{ o.el=img; o.w=img.naturalWidth; o.h=img.naturalHeight; o.ready=true; if(isProof()) renderPage(); };
+    img.src=o.url; });
 }
 $("#btnPick").onclick=()=>$("#fileIn").click();
 $("#fileIn").onchange=e=>{addFiles(e.target.files); e.target.value="";};
@@ -491,12 +492,52 @@ function renderCaps(){
 }
 
 /* ---------- export ---------- */
+/* Export = 2 layers:
+   1) html-to-image renders the page WITHOUT photos/logo (text, frames, colours)
+   2) photos + logo are drawn directly on a canvas from already-decoded images.
+   Mobile Safari often drops <img> inside html-to-image's SVG snapshot,
+   so photos never go through that path. */
+const PR = 1.5;
+function loadImg(src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
 async function snap(){
   const node=$("#page"); $("#pBody").blur();
   await document.fonts.ready;
-  const opt={width:1414,height:2000,pixelRatio:1.5,cacheBust:false,style:{transform:"none"}};
-  await htmlToImage.toPng(node,opt); // first pass warms fonts & images (Safari)
-  return htmlToImage.toPng(node,opt);
+  await Promise.all(S.photos.map(p=>p.el&&p.el.decode?p.el.decode().catch(()=>{}):null));
+  const k = S.scale || 1, pr = node.getBoundingClientRect();
+  const rectOf = el => { const r=el.getBoundingClientRect(); return {x:(r.left-pr.left)/k, y:(r.top-pr.top)/k, w:r.width/k, h:r.height/k}; };
+  // collect what to draw ourselves
+  const jobs = [...node.querySelectorAll("#pPhotos .cell")].map(cell=>{
+    const p=S.photos[+cell.dataset.i]; return {p, r:rectOf(cell.querySelector("img")), img:cell.querySelector("img")};
+  });
+  const logoEl=$("#pLogo"), logoR=rectOf(logoEl.parentElement);
+  const hidden=[...jobs.map(j=>j.img), logoEl];
+  hidden.forEach(el=>el.style.visibility="hidden");
+  let base;
+  try{
+    const opt={width:1414,height:2000,pixelRatio:PR,cacheBust:false,style:{transform:"none"}};
+    await htmlToImage.toPng(node,opt);          // warm-up pass (fonts)
+    base = await loadImg(await htmlToImage.toPng(node,opt));
+  } finally { hidden.forEach(el=>el.style.visibility=""); }
+
+  const cv=document.createElement("canvas"); cv.width=1414*PR; cv.height=2000*PR;
+  const ctx=cv.getContext("2d"); ctx.imageSmoothingQuality="high";
+  ctx.drawImage(base,0,0,cv.width,cv.height);
+  ctx.scale(PR,PR);
+  for(const {p,r} of jobs){
+    const im = p.el && p.el.complete ? p.el : await loadImg(p.url);
+    const s=Math.max(r.w/im.naturalWidth, r.h/im.naturalHeight);
+    const dw=im.naturalWidth*s, dh=im.naturalHeight*s;
+    const dx=r.x+(r.w-dw)*p.fx/100, dy=r.y+(r.h-dh)*p.fy/100;   // same maths as CSS object-position
+    ctx.save(); ctx.beginPath(); ctx.rect(r.x,r.y,r.w,r.h); ctx.clip();
+    ctx.drawImage(im,dx,dy,dw,dh); ctx.restore();
+  }
+  const lg = await loadImg(S.logo);
+  const s=Math.min(logoR.w/lg.naturalWidth, logoR.h/lg.naturalHeight);
+  const lw=lg.naturalWidth*s, lh=lg.naturalHeight*s;
+  ctx.save(); ctx.beginPath(); ctx.arc(logoR.x+logoR.w/2, logoR.y+logoR.h/2, logoR.w/2, 0, Math.PI*2); ctx.clip();
+  ctx.fillStyle="#fff"; ctx.fillRect(logoR.x,logoR.y,logoR.w,logoR.h);
+  ctx.drawImage(lg, logoR.x+(logoR.w-lw)/2, logoR.y+(logoR.h-lh)/2, lw, lh); ctx.restore();
+  return cv.toDataURL("image/png");
 }
 function fileBase(){ return `จดหมายข่าว-${String($("#issue").value||"xxx").padStart(3,"0")}`; }
 async function deliver(blob,name){
