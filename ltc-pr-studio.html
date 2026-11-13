@@ -88,7 +88,7 @@ dialog h3{font-family:Kanit;font-weight:600;margin:0 0 8px}
 #page .t1{position:absolute;left:460px;top:72px;font-size:156px;font-weight:800;color:#1E6B2E;line-height:1;letter-spacing:-1px}
 #page .t2{position:absolute;left:460px;top:236px;font-size:132px;font-weight:700;color:#1E6B2E;line-height:1}
 #page .divider{position:absolute;left:418px;top:372px;width:560px;height:20px}
-#page .issue{position:absolute;left:380px;top:404px;width:620px;height:76px;border:4px solid #2E8B44;border-radius:38px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:600;color:#1E6B2E;white-space:nowrap}
+#page .issue{position:absolute;left:698px;transform:translateX(-50%);top:404px;min-width:620px;padding:0 44px;height:76px;border:4px solid #2E8B44;border-radius:38px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:600;color:#1E6B2E;white-space:nowrap}
 #page .frame{position:absolute;left:46px;top:506px;width:1322px;height:1296px;border:3px solid #2E8B44;border-radius:38px;background:#fff;padding:26px 30px 22px;display:flex;flex-direction:column}
 #page .photos{display:flex;flex-direction:column;gap:20px}
 #page .prow{display:flex;gap:20px}
@@ -247,6 +247,7 @@ const LAYOUTS = {
   D:{name:"9 ภาพ", cap:9, hero:370, cols:4, rows:2, cellH:200}
 };
 const $ = s => document.querySelector(s);
+const TH = s => String(s).replace(/[0-9]/g, d => "๐๑๒๓๔๕๖๗๘๙"[d]);
 const ls = {
   get(k,d){ try{ const v = localStorage.getItem("ltcpr:"+k); return v===null?d:JSON.parse(v);}catch(e){return d;} },
   set(k,v){ try{ localStorage.setItem("ltcpr:"+k, JSON.stringify(v)); }catch(e){ toast("พื้นที่เก็บในเบราว์เซอร์เต็ม บันทึกค่าไม่สำเร็จ"); } }
@@ -256,7 +257,7 @@ const S = {
   logo: ls.get("logo", DEFAULT_LOGO),
   people: ls.get("people", "นายนักรบ จันทร์สุกรี ผู้อำนวยการวิทยาลัยเทคนิคเลย\nนายพลสิทธิ์ เชื้อเหรียญทอง รองผู้อำนวยการฝ่ายบริหารทรัพยากร\nนายอัศวิน สัตตาคม หัวหน้างานปกครองและความปลอดภัยนักเรียน นักศึกษา"),
   foot1: ls.get("foot1", "งานศูนย์ดิจิทัลและสื่อสารองค์กร   วิทยาลัยเทคนิคเลย"),
-  foot2: ls.get("foot2", "272 ถ.เจริญรัฐ ต.กุดป่อง อ.เมืองเลย จ.เลย 42000  |  โทร. 042-411-431"),
+  foot2: ls.get("foot2", "272 ถ.เจริญรัฐ ต.กุดป่อง อ.เมืองเลย จ.เลย 42000  |  โทร. 042-811-591").replace("042-411-431","042-811-591"),
   mode: ls.get("mode","copy"), key: ls.get("key",""), model: ls.get("model",""),
   lastIssue: ls.get("lastIssue", null)
 };
@@ -277,7 +278,7 @@ function syncMeta(from){
   src.forEach((s,i)=>$(dst[i]).value=$(s).value);
   const n = $("#issue").value.trim();
   const iss = n ? String(n).padStart(3,"0") : "___";
-  $("#pIssue").textContent = `ฉบับที่ ${iss}  ${MONTHS[$("#month").value]} พ.ศ.${$("#year").value}`;
+  $("#pIssue").textContent = TH(`ฉบับที่ ${iss}  ${MONTHS[$("#month").value]} พ.ศ.${$("#year").value}`);
 }
 ["#issue","#month","#year"].forEach(s=>$(s).addEventListener("input",()=>syncMeta(1)));
 ["#issue2","#month2","#year2"].forEach(s=>$(s).addEventListener("input",()=>syncMeta(2)));
@@ -335,9 +336,9 @@ function renderPage(){
   }
   $("#pPhotos").innerHTML = html;
   $("#capHint").textContent = S.photos.length>L.cap ? `แสดง ${L.cap} จาก ${S.photos.length} รูป รูปที่เกินจะไม่อยู่ในจดหมายข่าว` : `ใช้ ${ph.length} รูป`;
-  const b=$("#pBody"); if(document.activeElement!==b) b.textContent = S.body;
+  const b=$("#pBody"); if(document.activeElement!==b) b.textContent = TH(S.body);
   $("#pLogo").src = S.logo; $("#barLogo").src = S.logo;
-  $("#pFoot1").textContent = S.foot1; $("#pFoot2").textContent = S.foot2;
+  $("#pFoot1").textContent = TH(S.foot1); $("#pFoot2").textContent = TH(S.foot2);
   syncMeta(1); bindDrag(); requestAnimationFrame(()=>{ fitText(); scaleStage(); runChecks(); });
 }
 function fitText(){
@@ -373,7 +374,7 @@ function bindDrag(){
 
 /* body editing sync */
 $("#pBody").addEventListener("input",()=>{ S.body=$("#pBody").innerText; $("#bodyEdit").value=S.body; fitText(); runChecks(); });
-$("#bodyEdit").addEventListener("input",()=>{ S.body=$("#bodyEdit").value; $("#pBody").textContent=S.body; fitText(); runChecks(); });
+$("#bodyEdit").addEventListener("input",()=>{ S.body=$("#bodyEdit").value; $("#pBody").textContent=TH(S.body); fitText(); runChecks(); });
 $("#btnSmaller").onclick=()=>{ S.font=(S.font||S.autoFont||36)-1; fitText(); runChecks(); };
 $("#btnBigger").onclick=()=>{ S.font=(S.font||S.autoFont||36)+1; fitText(); runChecks(); };
 
@@ -381,9 +382,9 @@ $("#btnBigger").onclick=()=>{ S.font=(S.font||S.autoFont||36)+1; fitText(); runC
 function runChecks(){
   const w=[...(S.warnings||[])];
   const t=S.body;
-  const dup = t.match(/([ก-๙]{2,8})\1/g);
+  const dup = t.match(/([\u0E01-\u0E4E]{2,8})\1/g);
   if(dup) w.push("อาจมีคำซ้ำ: "+[...new Set(dup)].join(", "));
-  if(/[๐-๙]/.test(t)) w.push("พบเลขไทยในเนื้อข่าว ควรเปลี่ยนเป็นเลขอารบิก");
+  if(/[0-9]/.test(t)) w.push("ช่องเนื้อข่าวมีเลขอารบิก ในจดหมายข่าวแปลงเป็นเลขไทยให้แล้ว");
   if(S.ai && S.ai.eventDate){
     const d=new Date(S.ai.eventDate+"T00:00:00");
     if(!isNaN(d)){ const day=DAYS[d.getDay()]; if(!t.includes("วัน"+day)) w.push(`วันที่ ${S.ai.eventDate} ตรงกับวัน${day} แต่ในข่าวไม่พบ "วัน${day}" ตรวจวันในสัปดาห์อีกครั้ง`); }
@@ -405,7 +406,7 @@ function buildPrompt(){
 กฎ:
 - ห้ามแต่งเติมข้อเท็จจริง ชื่อ ตำแหน่ง วันที่ สถานที่ จำนวน ต้องมาจากข้อความดิบหรือรายชื่ออ้างอิงเท่านั้น
 - ถ้าชื่อหรือตำแหน่งไม่ตรงกับรายชื่ออ้างอิง ให้ใส่ใน warnings ห้ามแก้เอง
-- ใช้เลขอารบิกทั้งหมด ปีเป็น พ.ศ.
+- ใช้เลขไทย (๐-๙) ทั้งหมดในทุกช่อง ยกเว้น eventDate ปีเป็น พ.ศ.
 - สำนวนราชการ กระชับ ไม่ซ้ำคำ ตามโครง: "วัน[วัน]ที่ [วัน เดือน ปี] [ชื่อ] ผู้อำนวยการวิทยาลัยเทคนิคเลย มอบหมายให้ [ชื่อ ตำแหน่ง] พร้อมด้วย [ผู้ร่วม] เข้าร่วม/จัด[กิจกรรม] ณ [สถานที่] [รายละเอียด]"
 - body ยาว 4-7 บรรทัด ขึ้นบรรทัดใหม่ด้วย \\n ตัดบรรทัดตามวรรคที่อ่านลื่น
 - ถ้าเป็นกิจกรรมอ่อนไหว (ผู้ป่วย ผู้บำบัด ผู้ต้องขัง เรื่องส่วนตัวนักเรียน) ห้ามระบุชื่อบุคคลกลุ่มนั้น และเตือนให้เบลอหน้าใน warnings
@@ -429,6 +430,7 @@ function parseAI(txt){
   return JSON.parse(clean.slice(s,e+1));
 }
 function applyAI(j){
+  ["headline","body","facebook","line","web"].forEach(k=>{ if(j[k]) j[k]=TH(String(j[k])); });
   S.ai=j; S.body=(j.body||"").replace(/\\n/g,"\n");
   S.warnings=[...(j.missing||[]).map(x=>"ข้อมูลที่ขาด: "+x), ...(j.warnings||[])];
   goProof();
@@ -464,9 +466,9 @@ $("#btnCopyPrompt").onclick = async ()=>{
 $("#btnUseAI").onclick=()=>{
   const t=$("#aiPaste").value.trim(); if(!t){ toast("วางคำตอบจาก AI ก่อน"); return; }
   try{ applyAI(parseAI(t)); $("#dlgAI").close(); }
-  catch(e){ S.ai=null; S.warnings=["คำตอบไม่ใช่รูปแบบ JSON ใช้ข้อความที่วางเป็นเนื้อข่าวแทน"]; S.body=t; $("#dlgAI").close(); goProof(); }
+  catch(e){ S.ai=null; S.warnings=["คำตอบไม่ใช่รูปแบบ JSON ใช้ข้อความที่วางเป็นเนื้อข่าวแทน"]; S.body=TH(t); $("#dlgAI").close(); goProof(); }
 };
-$("#btnSkip").onclick=()=>{ S.ai=null; S.warnings=["ข้อความยังไม่ผ่านการเรียบเรียง"]; S.body=$("#raw").value.trim(); $("#dlgAI").close(); goProof(); };
+$("#btnSkip").onclick=()=>{ S.ai=null; S.warnings=["ข้อความยังไม่ผ่านการเรียบเรียง"]; S.body=TH($("#raw").value.trim()); $("#dlgAI").close(); goProof(); };
 $("#btnCloseAI").onclick=()=>$("#dlgAI").close();
 
 /* ---------- views ---------- */
