@@ -82,6 +82,9 @@ dialog h3{font-family:Kanit;font-weight:600;margin:0 0 8px}
 #page .band-tl2{position:absolute;left:-120px;top:52px;width:1000px;height:14px;background:#8CC796;transform:rotate(-4deg)}
 #page .stripes-r{position:absolute;right:0;top:820px;width:38px;height:900px;background:repeating-linear-gradient(135deg,#D7EBDA 0 14px,transparent 14px 34px)}
 #page .stripes-l{position:absolute;left:0;top:1500px;width:30px;height:300px;background:repeating-linear-gradient(45deg,#D7EBDA 0 12px,transparent 12px 30px)}
+#page .bgimg{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat}
+#page.exporting{background:transparent}
+#page.exporting .bgimg{visibility:hidden}
 #page .tint{position:absolute;inset:0;background:radial-gradient(circle at 92% 14%,#EAF5EC 0,transparent 38%),radial-gradient(circle at 8% 70%,#F1F8F2 0,transparent 30%)}
 #page .logo{position:absolute;left:44px;top:62px;width:362px;height:362px;border-radius:50%;box-shadow:0 0 0 10px #fff,0 0 0 18px #2E8B44,0 0 0 24px #fff;background:#fff;overflow:hidden}
 #page .logo img{width:100%;height:100%;object-fit:contain;display:block}
@@ -143,7 +146,7 @@ dialog h3{font-family:Kanit;font-weight:600;margin:0 0 8px}
     <div>
       <div class="stage" id="stage"><div class="scaler" id="scaler">
         <div id="page">
-          <div class="tint"></div><div class="band-tl"></div><div class="band-tl2"></div>
+          <div class="bgimg" id="pBg"></div><div class="tint"></div><div class="band-tl"></div><div class="band-tl2"></div>
           <div class="stripes-r"></div><div class="stripes-l"></div>
           <div class="logo"><img id="pLogo" alt=""></div>
           <div class="t1">จดหมายข่าว</div>
@@ -215,6 +218,12 @@ dialog h3{font-family:Kanit;font-weight:600;margin:0 0 8px}
 <dialog id="dlgSet"><div class="in">
   <h3>ตั้งค่า</h3>
   <p class="hint">บันทึกไว้ในเครื่องนี้เท่านั้น</p>
+  <label class="f">ภาพพื้นหลังจดหมายข่าว</label>
+  <div class="row"><button id="btnBg">เลือกภาพพื้นหลัง</button><button id="btnBgOff">ไม่ใช้ภาพพื้นหลัง</button></div>
+  <input type="file" id="bgIn" accept="image/*" hidden>
+  <label class="f" for="sBgOp">ความเข้มของภาพพื้นหลัง <span id="bgOpVal"></span></label>
+  <input type="range" id="sBgOp" min="0" max="100" step="5">
+  <p class="hint">ภาพพื้นหลังอยู่ใต้กรอบข่าวสีขาว ใช้ความเข้มต่ำจะอ่านง่ายกว่า</p>
   <label class="f">ตราวิทยาลัย (ไฟล์ต้นฉบับ)</label>
   <div class="row"><button id="btnLogo">เลือกไฟล์ตรา</button><button id="btnLogoReset">ใช้ตราเริ่มต้น</button></div>
   <input type="file" id="logoIn" accept="image/*" hidden>
@@ -255,6 +264,7 @@ const ls = {
 const S = {
   photos:[], layout:null, body:"", font:null, ai:null, warnings:[],
   logo: ls.get("logo", DEFAULT_LOGO),
+  bg: ls.get("bg", ""), bgOp: ls.get("bgOp", 25),
   people: ls.get("people", "นายนักรบ จันทร์สุกรี ผู้อำนวยการวิทยาลัยเทคนิคเลย\nนายพลสิทธิ์ เชื้อเหรียญทอง รองผู้อำนวยการฝ่ายบริหารทรัพยากร\nนายอัศวิน สัตตาคม หัวหน้างานปกครองและความปลอดภัยนักเรียน นักศึกษา"),
   foot1: ls.get("foot1", "งานศูนย์ดิจิทัลและสื่อสารองค์กร   วิทยาลัยเทคนิคเลย"),
   foot2: ls.get("foot2", "272 ถ.เจริญรัฐ ต.กุดป่อง อ.เมืองเลย จ.เลย 42000  |  โทร. 042-811-591").replace("042-411-431","042-811-591"),
@@ -338,9 +348,14 @@ function renderPage(){
   $("#pPhotos").innerHTML = html;
   $("#capHint").textContent = S.photos.length>L.cap ? `แสดง ${L.cap} จาก ${S.photos.length} รูป รูปที่เกินจะไม่อยู่ในจดหมายข่าว` : `ใช้ ${ph.length} รูป`;
   const b=$("#pBody"); if(document.activeElement!==b) b.textContent = TH(S.body);
-  $("#pLogo").src = S.logo; $("#barLogo").src = S.logo;
+  $("#pLogo").src = S.logo; $("#barLogo").src = S.logo; paintBg();
   $("#pFoot1").textContent = TH(S.foot1); $("#pFoot2").textContent = TH(S.foot2);
   syncMeta(1); bindDrag(); requestAnimationFrame(()=>{ fitText(); scaleStage(); runChecks(); });
+}
+function paintBg(){
+  const el=$("#pBg");
+  el.style.backgroundImage = S.bg ? `url("${S.bg}")` : "none";
+  el.style.opacity = (S.bgOp||0)/100;
 }
 function fitText(){
   const box=$("#page .body"), el=$("#pBody");
@@ -512,17 +527,26 @@ async function snap(){
   const logoEl=$("#pLogo"), logoR=rectOf(logoEl.parentElement);
   const hidden=[...jobs.map(j=>j.img), logoEl];
   hidden.forEach(el=>el.style.visibility="hidden");
+  node.classList.add("exporting");
   let base;
   try{
     const opt={width:1414,height:2000,pixelRatio:PR,cacheBust:false,style:{transform:"none"}};
     await htmlToImage.toPng(node,opt);          // warm-up pass (fonts)
     base = await loadImg(await htmlToImage.toPng(node,opt));
-  } finally { hidden.forEach(el=>el.style.visibility=""); }
+  } finally { hidden.forEach(el=>el.style.visibility=""); node.classList.remove("exporting"); }
 
   const cv=document.createElement("canvas"); cv.width=1414*PR; cv.height=2000*PR;
   const ctx=cv.getContext("2d"); ctx.imageSmoothingQuality="high";
-  ctx.drawImage(base,0,0,cv.width,cv.height);
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height);
   ctx.scale(PR,PR);
+  if(S.bg && S.bgOp>0){                                  // background image, same cover maths as CSS
+    const bg=await loadImg(S.bg);
+    const s=Math.max(1414/bg.naturalWidth, 2000/bg.naturalHeight);
+    const dw=bg.naturalWidth*s, dh=bg.naturalHeight*s;
+    ctx.save(); ctx.globalAlpha=S.bgOp/100;
+    ctx.drawImage(bg,(1414-dw)/2,(2000-dh)/2,dw,dh); ctx.restore();
+  }
+  ctx.drawImage(base,0,0,1414,2000);
   for(const {p,r} of jobs){
     const im = p.el && p.el.complete ? p.el : await loadImg(p.url);
     const s=Math.max(r.w/im.naturalWidth, r.h/im.naturalHeight);
@@ -566,12 +590,19 @@ $("#btnPdf").onclick=()=>exportAs("pdf");
 /* ---------- settings ---------- */
 function openSettings(){
   $("#sPeople").value=S.people; $("#sFoot1").value=S.foot1; $("#sFoot2").value=S.foot2;
+  $("#sBgOp").value=S.bgOp; $("#bgOpVal").textContent=S.bgOp+"%";
   $("#sMode").value=S.mode; $("#sKey").value=S.key; $("#sModel").value=S.model; $("#keyBox").hidden=S.mode==="copy";
   if(S.mode==="claude" && !S.model) $("#sModel").value="claude-sonnet-5-5";
   $("#dlgSet").showModal();
 }
 $("#btnSettings").onclick=openSettings;
 $("#sMode").onchange=()=>{ $("#keyBox").hidden=$("#sMode").value==="copy"; if($("#sMode").value==="claude"&&!$("#sModel").value) $("#sModel").value="claude-sonnet-5-5"; };
+$("#btnBg").onclick=()=>$("#bgIn").click();
+$("#bgIn").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>{ S.bg=r.result; ls.set("bg",S.bg); paintBg(); toast("เปลี่ยนภาพพื้นหลังแล้ว"); }; r.readAsDataURL(f); e.target.value=""; };
+$("#btnBgOff").onclick=()=>{ S.bg=""; ls.set("bg",""); paintBg(); toast("เอาภาพพื้นหลังออกแล้ว"); };
+$("#sBgOp").oninput=()=>{ S.bgOp=+$("#sBgOp").value; $("#bgOpVal").textContent=S.bgOp+"%"; paintBg(); };
+$("#sBgOp").onchange=()=>ls.set("bgOp",S.bgOp);
 $("#btnLogo").onclick=()=>$("#logoIn").click();
 $("#logoIn").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ S.logo=r.result; ls.set("logo",S.logo); $("#barLogo").src=S.logo; $("#pLogo").src=S.logo; toast("เปลี่ยนตราแล้ว"); }; r.readAsDataURL(f); };
 $("#btnLogoReset").onclick=()=>{ S.logo=DEFAULT_LOGO; ls.set("logo",S.logo); $("#barLogo").src=S.logo; $("#pLogo").src=S.logo; toast("ใช้ตราเริ่มต้นแล้ว"); };
